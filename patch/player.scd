@@ -1,3 +1,4 @@
+s.options.outDevice = "Built-in Output";
 (
 s.waitForBoot({
 	Buffer.freeAll;
@@ -12,20 +13,52 @@ s.waitForBoot({
 	~currentDir= "".resolveRelative;
 
 	~number_steps = 4;
+	~np1Playing =  true;
 
 
 	//functions
 	~rainbow = {|value| Color.new(value.gaussCurve(1, 0.1, 0.3), value.gaussCurve(1, 0.5, 0.2), value.gaussCurve(1, 1, 0.3))};
 
 
+		//proxy
+
+	~startProxy = {
+	~np1 = NodeProxy.audio(s, 2).play;
+	~np1.fadeTime = 1;
+	~np2 = NodeProxy.audio(s, 2).play;
+	~np2.fadeTime = 1;
+
+	~np1.source = {
+		|b=63, vol=0|
+		Pan2.ar(
+			BufRd.ar(1, b, LFSaw.ar(BufDur.ir(b).reciprocal).range(0, BufFrames.ir(b)))
+		) * Lag2.kr(vol, 0.2)
+	};
+	~np2.source = {
+		|b=63, vol=0|
+		Pan2.ar(
+			BufRd.ar(1, b, LFSaw.ar(BufDur.ir(b).reciprocal).range(0, BufFrames.ir(b))) * Lag2.kr(vol, 0.2)
+		)
+	};
+	};
+
+
 	~startSounds = {
 		|directory|
-		~np.clear(5);
-	//add all buffer, bufnum = 0 should be silence
-	~buffers = BuffersFolder.read(directory);
+		Buffer.freeAll;
+		~np1.clear(5);
+		~np2.clear(5);
+		//add all buffer, bufnum = 0 should be silence
+		~buffers = BuffersFolder.read(directory);
 		{
-	~silence = Buffer.alloc(s, ~buffers[0].numFrames, 1);
-	~buffers.addFirst(~silence);
+			~silence = Buffer.alloc(s, ~buffers[0].numFrames, 1);
+			~buffers.addFirst(~silence);
+
+			~startProxy.();
+		}.defer(1)
+
+	};
+
 
 
 	//add buffer indices to dictionary for lookup
@@ -36,23 +69,15 @@ s.waitForBoot({
 
 
 
-	//proxy
 
-	~np = NodeProxy.audio(s, 2).play(0, 2);
-	~np.fadeTime = 1;
-	~reader = NodeProxy.control(s, 1);
 
-	~np.source = {|b| Pan2.ar(BufRd.ar(1, b, LFSaw.ar(BufDur.ir(b).reciprocal).range(0, BufFrames.ir(b))))};
-	~np.set(\b, ~buffers[0].bufnum);
-	~np[10] = \filter -> {arg in; FreeVerb.ar(in)};
-		}.defer(1)
-	};
+
 
 
 
 
 	~createGui = {
-		~gui.close;
+		if(~gui.notNil,{ ~gui.close});
 
 		~gui = Window("Visualizer", Window.availableBounds);
 
@@ -76,7 +101,7 @@ s.waitForBoot({
 
 		~calButton.action = {
 			~previous = [0, 0, 0];
-	~boundaries =  [[0,0], [-40, -40], [150, 150]];
+			~boundaries =  [[0,0], [-40, -40], [150, 150]];
 		};
 
 
@@ -122,49 +147,49 @@ s.waitForBoot({
 	};
 
 
-		//sounds selecter
-w = Window.new("", Rect(300, 300, 300, 30)).front;
-m = PopUpMenu(w, Rect(0, 0, 300, 30));
+	//sounds selecter
+	w = Window.new("", Rect(300, 300, 300, 30)).front;
+	m = PopUpMenu(w, Rect(0, 0, 300, 30));
 
-m.items = [
-	"Select Sounds","clarinet, marbles and piano", "oboe, flute and bass", "bowl, water and whisper"
-];
+	m.items = [
+		"Select Sounds","clarinet, marbles and piano", "oboe, flute and bass", "bowl, water and whisper"
+	];
 
-m.background_(Color.green(0.7));  // only changes the look of displayed item
-m.stringColor_(Color.white);   // only changes the look of displayed item
-m.font_(Font("Courier", 13));   // only changes the look of displayed item
-m.action = { arg menu;
-	[menu.value, menu.item].postln;
-	case { menu.value == 1} {
-	~soundNames = ["Clarinet", "Marbles", "Piano"];
-	~soundsDir = ~soundNames[0][0].toLower++~soundNames.join.drop(1);
+	m.background_(Color.green(0.7));  // only changes the look of displayed item
+	m.stringColor_(Color.white);   // only changes the look of displayed item
+	m.font_(Font("Courier", 13));   // only changes the look of displayed item
+	m.action = { arg menu;
+		[menu.value, menu.item].postln;
+		case { menu.value == 1} {
+			~soundNames = ["Clarinet", "Marbles", "Piano"];
+			~soundsDir = ~soundNames[0][0].toLower++~soundNames.join.drop(1);
 			~startSounds.value(~currentDir++"sounds/"++~soundsDir);
-		~createGui.value();
+			~createGui.value();
 
-	}
+		}
 
-	{ menu.value == 2} {
-		~soundNames = ["Oboe", "Flute", "Bass"];
-	~soundsDir = ~soundNames[0][0].toLower++~soundNames.join.drop(1);
+		{ menu.value == 2} {
+			~soundNames = ["Oboe", "Flute", "Bass"];
+			~soundsDir = ~soundNames[0][0].toLower++~soundNames.join.drop(1);
 			~startSounds.value(~currentDir++"sounds/"++~soundsDir);
 
-		~createGui.value();
-	}
+			~createGui.value();
+		}
 
-	{ menu.value == 3} {
-		~soundNames = ["Bowl", "Water", "Whisper"];
-	~soundsDir = ~soundNames[0][0].toLower++~soundNames.join.drop(1);
+		{ menu.value == 3} {
+			~soundNames = ["Bowl", "Water", "Whisper"];
+			~soundsDir = ~soundNames[0][0].toLower++~soundNames.join.drop(1);
 			~startSounds.value(~currentDir++"sounds/"++~soundsDir);
-		~createGui.value();
+			~createGui.value();
+		};
+
+
 	};
 
 
-};
 
 
-
-
-	~previous = [0, 0, 0];
+	~previousCoord = [0, 0, 0];
 	~boundaries =  [[0,0], [-40, -40], [150, 150]];
 
 	OSCdef(\right_hand, {
@@ -177,7 +202,7 @@ m.action = { arg menu;
 		//[x, y, z].postln;
 
 		//smooths to prevent jitter
-		smoothCoord = ([x, y, z]+~previous)/2;
+		smoothCoord = ([x, y, z] + ~previousCoord)/2;
 		//converts from coordinates to percentages
 		percentages = (smoothCoord).collect({|coord, i|
 			//inverse the value of y
@@ -189,7 +214,7 @@ m.action = { arg menu;
 		});
 		percentages = (percentages * 100).asInteger;
 
-		[x, y, z].postln;
+		//smoothCoord.postln;
 
 		//y is inversed, lower values are high up
 		case
@@ -200,9 +225,24 @@ m.action = { arg menu;
 		{ ~boundaries[2][0] > z} {~boundaries[2][0] = z}
 		{ ~boundaries[2][1] < z} {~boundaries[2][1] = z};
 
-		//play the sound.
-		~np.set(\b, ~buffersIndexLookup[percentages.join.asInteger]);
 
+		//smoothly switch between sounds
+		if(percentages != ~previousPercentages,{
+			if(~np1Playing.not,
+				{
+					~np1.set(\vol, 0);
+					~np2.set(\b, ~buffersIndexLookup[percentages.join.asInteger], \vol, 1);
+					~np1Playing = true;
+					"si".postln;
+				},
+				{
+
+					~np2.set(\vol, 0);
+					~np1.set(\b, ~buffersIndexLookup[percentages.join.asInteger], \vol, 1);
+					~np1Playing = false;
+					"no".postln;
+			});
+		});
 
 		{
 			//change GUI text
@@ -216,8 +256,113 @@ m.action = { arg menu;
 			~zSlider.value_(z.linlin(~boundaries[2][0], ~boundaries[2][1], 0, 1))
 		}.defer;
 
-		~previous = [x, y, z]
+		~previousCoord = [x, y, z];
+		~previousPercentages = percentages;
 
 	}, '/finger_pos');
 });
 )
+
+
+
+//longer files
+//with nanokontrol
+//2 by 2
+//4 by 4
+
+(
+SynthDef(\gs, {
+		|sync =1, dens=20, grainDur=0.1, durRand=1, buf=0,
+		rate=1, pos=0, posSpeed=1, posRand=0,
+		grainEnv=(-1), pan=0, panHz=0, panRand=0, gate=1, atk=1, dec=0.3, rel=1, crv=(-1), amp=1, out=0, loopTime=20, ampLFO=0, lfoFreq= 0.5|
+
+		var sig, env, densCtrl, durCtrl, posCtrl, panCtrl;
+
+		env = Linen.kr(gate,atk,1,rel,2);
+
+		densCtrl = Select.ar(sync, [Dust.ar(dens), Impulse.ar(dens)]); //para seleccionar si la densidad es fija o aleatoria
+
+		durCtrl = grainDur * LFNoise1.kr(100).exprange(1/durRand, durRand);
+
+		posCtrl = Phasor.ar(0, posSpeed * BufRateScale.ir(buf),0, BufSamples.ir(buf)-1);
+		posCtrl = posCtrl + LFNoise1.kr(100).bipolar(posRand*SampleRate.ir);
+		posCtrl = posCtrl / BufSamples.ir(buf);
+		posCtrl = posCtrl + pos;
+
+		panCtrl = pan + LFNoise1.kr(panHz).bipolar(panRand);
+
+		sig = GrainBuf.ar(
+			2,
+			densCtrl,
+			durCtrl,
+			buf,
+			rate,
+			posCtrl,
+			2,
+			panCtrl,
+			grainEnv
+		);
+
+		sig = LeakDC.ar(sig * env);
+
+		Out.ar(out, Select.ar(ampLFO,[sig*amp.lag2(0.1),sig *amp.lag(0.1)*LFNoise1.kr(LFNoise0.kr(lfoFreq).range(0.5,2)).range(0.3,1)]));
+
+	}).add;
+
+SynthDef(\wtabl,
+	{arg out = 0, buf = 0, freq = 300, amp = 0.5, pan = 0, atk=0.01, rel=1;
+		var sig, env;
+		sig = Pan2.ar(PlayBuf.ar(1,buf,BufRateScale.ir(buf) *freq,1,0,1),pan);
+		env = EnvGen.ar(Env.perc(atk,rel),doneAction:2);
+		sig = sig * env;
+		sig = sig * amp;
+		Out.ar(out,sig);
+}).add;
+
+SynthDef(\vplay,
+	{arg out = 0, buf = 0, rate = 1, amp = 0.5, pan = 0, atk=0.0, sus=1, rel= 0, pos=0, gate=1;
+		var sig, env;
+		var size =5;
+		sig = {|i| PlayBuf.ar(1,buf,BufRateScale.ir(buf) * rate * (i +1),1,BufDur.kr(buf)*pos*48000, 1, doneAction:2)}!size;
+	sig = Pan2.ar(sig, pan);
+		env = Linen.kr(gate, atk, 1,rel, doneAction:2);
+		sig = sig * env;
+		sig = sig * amp/size;
+		Out.ar(out,sig);
+}).add;
+
+)
+
+(
+Pdef(\rythm,
+	Pbind(
+		\instrument, \gs,
+		\dur, Pseq([1], inf),
+		\buf, Pseq(~buffers.copySeries(1, 10,~buffers.size), inf).trace,
+		\grainDur, 0.1,
+		\dens, 10
+
+	)
+).play
+
+)
+
+(
+Pdef(\chords,
+	Pbind(
+		\instrument, \vplay,
+		\dur, Pseq([5], inf),
+		\atk, 1,
+		\pos, 0,
+		\rel, 1,
+		\rate, 0.25,
+		\amp, 1,
+		\buf, Prand(~buffers, inf).trace,
+	)
+).play
+
+)
+~buffers[2..3]
+~buffers.copyRange(1,~buffers.size).collect({|buf| buf.path.basename.postln})
+
+~buffers.copySeries(1, 10,~buffers.size).collect({|buf| buf.path.basename.postln})
