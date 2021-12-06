@@ -1,8 +1,10 @@
-s.options.outDevice = "Built-in Output";
+os.options.outDevice = "Built-in Output";
 (
 s.waitForBoot({
 	Buffer.freeAll;
 	Window.closeAll;
+	MIDIClient.init;
+MIDIIn.connectAll;
 	s.sync;
 	~height = Window.availableBounds.height;
 	~width = Window.availableBounds.width;
@@ -14,6 +16,10 @@ s.waitForBoot({
 
 	~number_steps = 4;
 	~np1Playing =  true;
+
+	~rateEnv = Env([1, 0.5, 2.0], [4, 127], [\lin, \exp, -6, \sin]);
+
+
 
 
 	//functions
@@ -29,17 +35,40 @@ s.waitForBoot({
 	~np2.fadeTime = 1;
 
 	~np1.source = {
-		|b=63, vol=0|
+		|b=63, vol=0, rate=1|
 		Pan2.ar(
-			BufRd.ar(1, b, LFSaw.ar(BufDur.ir(b).reciprocal).range(0, BufFrames.ir(b)))
+			BufRd.ar(1, b, LFSaw.ar(BufDur.ir(b).reciprocal* rate).range(0, BufFrames.ir(b)))
 		) * Lag2.kr(vol, 0.2)
 	};
 	~np2.source = {
-		|b=63, vol=0|
+		|b=63, vol=0, rate=1|
 		Pan2.ar(
-			BufRd.ar(1, b, LFSaw.ar(BufDur.ir(b).reciprocal).range(0, BufFrames.ir(b))) * Lag2.kr(vol, 0.2)
+			BufRd.ar(1, b, LFSaw.ar(BufDur.ir(b).reciprocal * rate).range(0, BufFrames.ir(b))) * Lag2.kr(vol, 0.2)
 		)
 	};
+
+
+		~np1[10] = \filter -> { arg in, wetDel= 0;
+		XFade2.ar(in,
+			CombC.ar(in, 0.2, 0.01, 1), wetDel.linlin(0, 1, -1, 1)) };
+	~np2[10] = \filter -> { arg in, wetDel= 0;
+		XFade2.ar(in,
+			CombC.ar(in, 0.2, 0.01, 1), wetDel.linlin(0, 1, -1, 1)) };
+
+	~np1[20] = \filter -> { arg in, wetGrain= 0, grainSpeed = 32;
+		XFade2.ar(in,
+				GrainIn.ar(1, Impulse.kr(grainSpeed), 1/grainSpeed, in, 0, -1), wetGrain.linlin(0, 1, -1, 1)) };
+	~np2[20] = \filter -> { arg in, wetGrain= 0, grainSpeed = 32;
+		XFade2.ar(in,
+			GrainIn.ar(1, Impulse.kr(grainSpeed), 1/grainSpeed, in, 0, -1), wetGrain.linlin(0, 1, -1, 1)) };
+
+	~np1[30] = \filter -> { arg in, wetRev= 0, fb= 0.1;
+		XFade2.ar(in,
+				Greyhole.ar(in, 1, 0, 1, 0.707, fb), wetRev.linlin(0, 1, -1, 1)) };
+		~np2[30] = \filter -> { arg in, wetRev= 0, fb= 0.1;
+		XFade2.ar(in,
+				Greyhole.ar(in, 1, 0, 1, 0.707, fb), wetRev.linlin(0, 1, -1, 1)) };
+
 	};
 
 
@@ -65,12 +94,6 @@ s.waitForBoot({
 	~buffersIndexLookup = Dictionary.new;
 
 	~indices = ~buffers.do({|buf| ~buffersIndexLookup.put(buf.path.asString.basename.splitext[0].split($_)[[2, 3, 4]].join.asInteger,buf.bufnum)});
-
-
-
-
-
-
 
 
 
@@ -233,6 +256,7 @@ s.waitForBoot({
 					~np1.set(\vol, 0);
 					~np2.set(\b, ~buffersIndexLookup[percentages.join.asInteger], \vol, 1);
 					~np1Playing = true;
+					percentages.postln;
 					"si".postln;
 				},
 				{
@@ -240,6 +264,7 @@ s.waitForBoot({
 					~np2.set(\vol, 0);
 					~np1.set(\b, ~buffersIndexLookup[percentages.join.asInteger], \vol, 1);
 					~np1Playing = false;
+					percentages.postln;
 					"no".postln;
 			});
 		});
@@ -261,6 +286,125 @@ s.waitForBoot({
 
 	}, '/finger_pos');
 });
+
+
+~previousClass = 0;
+OSCdef(\left_hand,
+	{
+		|msg, time|
+		var class = msg[1];
+		if(class != ~previousClass,
+			{
+				class.postln;
+				if(class == 2.0,
+					{
+						OSCdef(\right_hand).disable;
+					},
+					{
+						OSCdef(\right_hand).enable;
+				});
+		});
+
+		~previousClass = class;
+	},
+	'/wek/outputs',
+	NetAddr("127.0.0.1"),
+	recvPort:57130
+);
+
+
+~midiPercentages = [0, 0, 0];
+
+~playFromMidi = {
+	|percentage|
+	if(~np1Playing.not,
+				{
+					~np1.set(\vol, 0);
+					~np2.set(\b, ~buffersIndexLookup[percentage.join.asInteger], \vol, 1);
+
+
+				},
+				{
+
+					~np2.set(\vol, 0);
+					~np1.set(\b, ~buffersIndexLookup[percentage.join.asInteger], \vol, 1);
+		});
+};
+
+MIDIdef.cc(\nano,
+	{ arg ...args;
+		var ccNum = args[1];
+		var val = args[0];
+
+		args.postln;
+
+		switch(ccNum,
+			0, {
+				~midiPercentages[0]= val.linlin(0, 127, 0, 100).round(33).snap(100, 30, 1).asInteger;
+				~playFromMidi.value(~midiPercentages);
+			},
+			1, {
+				~midiPercentages[1]= val.linlin(0, 127, 0, 100).round(33).snap(100, 30, 1).asInteger;
+				~playFromMidi.value(~midiPercentages);
+			},
+			2, {
+				~midiPercentages[2]= val.linlin(0, 127, 0, 100).round(33).snap(100, 30, 1).asInteger;
+				~playFromMidi.value(~midiPercentages);
+			},
+			3, {
+				~np1.set(\rate, ~rateEnv[val]);
+				~np2.set(\rate, ~rateEnv[val]);
+			},
+			4, {
+				~np1.set(\wetDel, val.linlin(0, 127, 0, 1));
+				~np2.set(\wetDel, val.linlin(0, 127, 0, 1));
+			},
+			5, {
+				~np1.set(\wetGrain, val.linlin(0, 127, 0, 1));
+				~np2.set(\wetGrain, val.linlin(0, 127, 0, 1));
+			},
+			6, {
+				~np1.set(\wetRev, val.linlin(0, 127, 0, 1));
+				~np2.set(\wetRev, val.linlin(0, 127, 0, 1));
+			},
+			7, {
+
+			},
+
+			21, {
+				~np1.set(\grainSpeed, val.linexp(0, 127, 1, 64));
+				~np2.set(\grainSpeed, val.linexp(0, 127, 1, 64));
+			},
+
+			22, {
+				~np1.set(\fb, val.linexp(0, 127, 0.1, 1));
+				~np2.set(\fb, val.linexp(0, 127, 0.1, 1));
+			}
+
+		);
+		~midiPercentages.postln;
+		~lastPercentages.postln;
+
+
+
+
+
+		{
+			//change GUI text
+			~coordinatesText.string_(~midiPercentages.asString)
+			.stringColor_(Color.red(0.8));
+			//change GUI coordinates
+			~slider.setXY(
+				~midiPercentages[0].linlin(0, 127, 0, 1),
+				~midiPercentages[1].linlin(0, 127, 0, 1),
+			);//.background_(~rainbow.(z.linlin(~boundaries[2][0], ~boundaries[2][1], 0, 1)))
+			~zSlider.value_(~midiPercentages[2].linlin(0, 127, 0, 1))
+		}.defer;
+
+		{~lastPercentages = ~midiPercentages}.defer(2);
+	}
+);
+
 )
 
 
@@ -331,9 +475,7 @@ SynthDef(\vplay,
 		Out.ar(out,sig);
 }).add;
 
-)
 
-(
 Pdef(\rythm,
 	Pbind(
 		\instrument, \gs,
@@ -343,11 +485,9 @@ Pdef(\rythm,
 		\dens, 10
 
 	)
-).play
+).play;
 
-)
 
-(
 Pdef(\chords,
 	Pbind(
 		\instrument, \vplay,
@@ -366,3 +506,4 @@ Pdef(\chords,
 ~buffers.copyRange(1,~buffers.size).collect({|buf| buf.path.basename.postln})
 
 ~buffers.copySeries(1, 10,~buffers.size).collect({|buf| buf.path.basename.postln})
+
