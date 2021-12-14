@@ -151,7 +151,7 @@ def encodeMultiple(encodings, percentages_list):
 
   #this returns every individual encodings.
 #If you want every encoding (including repeated like (0, 50 50) (0, 100, 100)) use "percentages" instead of "indidivual_sounds_nums"
-all_encodings, percentages_str = encodeMultiple(encodings_fitted, 
+all_encodings, percentages_str = encodeMultiple(encodings_fitted, individual_sounds_nums)
 
 print('ya')
 for encoding, percentage_str in zip(all_encodings, percentages_str):

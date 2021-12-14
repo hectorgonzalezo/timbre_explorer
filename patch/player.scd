@@ -1,4 +1,4 @@
-os.options.outDevice = "Built-in Output";
+s.options.outDevice = "Built-in Output";
 (
 s.waitForBoot({
 	Buffer.freeAll;
