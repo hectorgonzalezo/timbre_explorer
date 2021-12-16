@@ -1,4 +1,3 @@
-s.options.outDevice = "Built-in Output";
 (
 s.waitForBoot({
 	Buffer.freeAll;
