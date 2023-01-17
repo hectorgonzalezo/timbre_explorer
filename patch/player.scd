@@ -19,11 +19,8 @@ MIDIIn.connectAll;
 	~rateEnv = Env([1, 0.5, 2.0], [4, 127], [\lin, \exp, -6, \sin]);
 
 
-
-
 	//functions
 	~rainbow = {|value| Color.new(value.gaussCurve(1, 0.1, 0.3), value.gaussCurve(1, 0.5, 0.2), value.gaussCurve(1, 1, 0.3))};
-
 
 		//proxy
 
