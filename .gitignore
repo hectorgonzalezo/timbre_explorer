@@ -3,7 +3,10 @@ paper
 *.pptx
 *.wav
 *.npy
-LeapMotionViaPython/
+!interactive_system/LeapMotionViaPython
+interactive_system/LeapMotionViaPython/*
+!interactive_system/LeapMotionViaPython/leap.py
+!Leap
 wavenet*
 __MAC*
 *propos*

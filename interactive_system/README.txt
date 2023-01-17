@@ -1,4 +1,4 @@
-to clean soundfiles do:
+to clean soundfiles run:
 
 conda activate clean
 

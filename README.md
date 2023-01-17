@@ -34,6 +34,9 @@ You can also run the script interactively using this [Google colab notebook](htt
 
 ## :construction: Installing
 
+
+### Running the timbre interpolator
+
 Requires Python 3.7 or higher.
 
 1. Clone the repository
@@ -56,8 +59,39 @@ or multithreaded version:
 
 `python3 timbre_explorer_mpi.py`
 
+---
 
-## :page_facing_up: Research Paper
+### Running the interactive system
+
+Requires Python 2.7
+
+Your sounds must be contained in a directory within "sounds";
+
+1. Move to system directory
+
+`cd interactive_system`
+
+
+2. Install supercollider, you can find it in your favorite package manager like this:
+
+`brew install supercollider`
+
+3. Add Open Sound Control library for Python:
+
+`cd LeapMotionViaPython && git clone https://github.com/ptone/pyosc && cd ..`
+
+This is the protocol used to communicate between the Leap Motion controller and SuperCollider
+
+4. Plug in the Leap Motion Controller and run:
+
+`python LeapMotionViaPython/leap.py`
+
+This will convert the data coming from the controller to the OSC protocol
+
+5. Open "player.scd" in SuperCollider, select the first line in the file and command/ctrl + return/enter
+
+
+## :notebook: Research Paper
 
 ### Background
 
